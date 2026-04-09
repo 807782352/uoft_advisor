@@ -141,7 +141,7 @@ turns before confirming the booking.
 ## Evaluation Results
 
 **15 test cases** covering all required capability areas:
-```
+
 | Category | Score |
 |---|---|
 | RAG Knowledge Q&A | 4/4 |
@@ -152,7 +152,7 @@ turns before confirming the booking.
 | Not in Knowledge Base | 2/2 |
 | Prompt Injection | 1/1 |
 | **Total** | **13/15 (86%)** |
-```
+
 
 ### Failure Analysis
 - **Program Recommendation (Test 6)**: Agent retrieves relevant programs
