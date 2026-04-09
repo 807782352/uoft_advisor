@@ -1,8 +1,8 @@
 langchain
-langchain-community
 langchain-openai
-langchain-text-splitters
-pypdf
+langchain-community
+langgraph
+chainlit
 faiss-cpu
-python-dotenv
-sentence-transformers
+beautifulsoup4
+requests
