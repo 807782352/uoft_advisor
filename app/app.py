@@ -1,5 +1,8 @@
 # app.py
 import chainlit as cl
+
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
 from agent import build_agent, chat
 
 # Run this code to start: python -m chainlit run app.py -w

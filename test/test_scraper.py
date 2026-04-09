@@ -1,7 +1,11 @@
 # test_scraper.py
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
+
 import requests
 from bs4 import BeautifulSoup
 from scraper import get_all_program_slugs, parse_program_page, scrape_all
+
 
 def test_get_slugs():
     session = requests.Session()
@@ -58,7 +62,6 @@ def test_scrape_all():
 def test_empty_pages():
     import requests
     from bs4 import BeautifulSoup
-    from scraper import parse_program_page
 
     session = requests.Session()
     

@@ -4,6 +4,15 @@ from time import sleep
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+
+import json
+from time import sleep
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
 from config import embeddings
 
 # ============================================================

@@ -1,10 +1,12 @@
-# tools.py
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+
 from langchain_core.tools import tool
 from rag import rag_answer
 from config import llm
 
 # ============================================================
-# Tool 1: Answer questions using RAG (知识问答)
+# Tool 1: Answer questions using RAG (Knowledge QA)
 # ============================================================
 
 @tool

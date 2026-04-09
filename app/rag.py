@@ -1,4 +1,7 @@
 # rag.py
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+
 from langchain_core.prompts import ChatPromptTemplate
 from build_vectorstore import load_vectorstore
 from config import llm

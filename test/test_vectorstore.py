@@ -1,8 +1,9 @@
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
+
 from build_vectorstore import load_vectorstore
 
 def test_vectorstore():
-    from build_vectorstore import load_vectorstore
-
     vectorstore = load_vectorstore("faiss_index")
     
     # Use MMR to get more diverse results and avoid returning very similar documents

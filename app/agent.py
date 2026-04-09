@@ -7,6 +7,9 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
 
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+
 from config import llm
 from tools import TOOLS
 
