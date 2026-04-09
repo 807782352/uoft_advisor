@@ -32,7 +32,7 @@ This agent helps prospective and current UofT students with:
 
 ## Tech Stack
 
-```
+
 | Component | Technology |
 |---|---|
 | LLM | qwen3-30b-a3b-fp8 (course endpoint) |
@@ -42,7 +42,7 @@ This agent helps prospective and current UofT students with:
 | LLM Integration | LangChain |
 | UI | Chainlit |
 | Language | Python 3.11 |
-```
+
 
 ---
 
@@ -51,7 +51,6 @@ This agent helps prospective and current UofT students with:
 uoft_advisor/
 ├── app/
 │   ├── agent.py              # LangGraph agent + graph definition
-│   ├── app.py                # Chainlit UI entry point
 │   ├── build_vectorstore.py  # Build and load FAISS index
 │   ├── config.py             # LLM and embeddings configuration
 │   ├── rag.py                # RAG pipeline
@@ -64,6 +63,8 @@ uoft_advisor/
 │   ├── results/              # Evaluation outputs
 │   ├── evaluation.py         # Automated test suite (15 test cases)
 │   └── test_*.py             # Unit tests per module
+├── public/                   # Chainlit UI settings
+├── app.py                    # Chainlit UI entry point
 ├── requirements.txt
 └── README.md
 ```
