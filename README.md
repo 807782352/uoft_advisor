@@ -16,20 +16,23 @@ This agent helps prospective and current UofT students with:
 ---
 
 ## Architecture
-User Query
-↓
-Chainlit Interface (app.py)
-↓
-LangGraph Agent (agent.py)
-↓ intent classification + tool routing
-├── search_programs   → RAG Pipeline → FAISS Vector Store
-├── recommend_programs → RAG + LLM reasoning
-└── book_advisor_appointment → Multi-turn conversation
+```
+ User Query
+    ↓
+    Chainlit Interface (app.py)
+    ↓
+    LangGraph Agent (agent.py)
+    ↓ intent classification + tool routing
+    ├── search_programs   → RAG Pipeline → FAISS Vector Store
+    ├── recommend_programs → RAG + LLM reasoning
+    └── book_advisor_appointment → Multi-turn conversation
+```
 
 ---
 
 ## Tech Stack
 
+```
 | Component | Technology |
 |---|---|
 | LLM | qwen3-30b-a3b-fp8 (course endpoint) |
@@ -39,10 +42,12 @@ LangGraph Agent (agent.py)
 | LLM Integration | LangChain |
 | UI | Chainlit |
 | Language | Python 3.11 |
+```
 
 ---
 
 ## Project Structure
+```
 uoft_advisor/
 ├── app/
 │   ├── agent.py              # LangGraph agent + graph definition
@@ -61,7 +66,7 @@ uoft_advisor/
 │   └── test_*.py             # Unit tests per module
 ├── requirements.txt
 └── README.md
-
+```
 ---
 
 ## Setup Instructions
@@ -136,7 +141,7 @@ turns before confirming the booking.
 ## Evaluation Results
 
 **15 test cases** covering all required capability areas:
-
+```
 | Category | Score |
 |---|---|
 | RAG Knowledge Q&A | 4/4 |
@@ -147,6 +152,7 @@ turns before confirming the booking.
 | Not in Knowledge Base | 2/2 |
 | Prompt Injection | 1/1 |
 | **Total** | **13/15 (86%)** |
+```
 
 ### Failure Analysis
 - **Program Recommendation (Test 6)**: Agent retrieves relevant programs
