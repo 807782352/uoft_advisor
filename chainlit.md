@@ -1,14 +1,18 @@
-# Welcome to Chainlit! 🚀🤖
+# 🎓 UofT Academic Advisor
 
-Hi there, Developer! 👋 We're excited to have you on board. Chainlit is a powerful tool designed to help you prototype, debug and share applications built on top of LLMs.
+Welcome! I'm your AI-powered academic advisor for the **University of Toronto**.
 
-## Useful Links 🔗
+I can help you with:
 
-- **Documentation:** Get started with our comprehensive [Chainlit Documentation](https://docs.chainlit.io) 📚
-- **Discord Community:** Join our friendly [Chainlit Discord](https://discord.gg/k73SQ3FyUh) to ask questions, share your projects, and connect with other developers! 💬
+- 📚 **Program Information** — requirements, courses, enrolment criteria
+- 💡 **Program Recommendations** — based on your interests and background  
+- 📅 **Advisor Appointments** — book a meeting with an academic advisor
 
-We can't wait to see what you create with Chainlit! Happy coding! 💻😊
+**Try asking:**
+- *"What are the requirements for Computer Science Specialist?"*
+- *"I love math and biology, what program fits me?"*
+- *"I'd like to book an appointment with an advisor"*
 
-## Welcome screen
-
-To modify the welcome screen, edit the `chainlit.md` file at the root of your project. If you do not want a welcome screen, just leave this file empty.
+---
+*Powered by UofT Academic Calendar data · Built with LangChain & LangGraph*
+*Designed and developed by Ziyi Xu*

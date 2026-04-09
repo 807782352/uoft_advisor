@@ -2,7 +2,8 @@
 import chainlit as cl
 
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+
 from agent import build_agent, chat
 
 # Run this code to start: python -m chainlit run app.py -w
@@ -13,25 +14,20 @@ from agent import build_agent, chat
 
 @cl.on_chat_start
 async def on_chat_start():
-    """
-    Called when a new conversation starts.
-    Initialize the agent and store in session.
-    """
     agent = build_agent()
     cl.user_session.set("agent", agent)
     cl.user_session.set("history", [])
 
     await cl.Message(
-        content="""👋 **Welcome to the UofT Academic Advisor!**
-
-I can help you with:
-- 🎓 **Program information** — requirements, courses, enrolment
-- 💡 **Program recommendations** — based on your interests and background
-- 📅 **Book an appointment** — with a UofT academic advisor
-
-What can I help you with today?"""
+        content=(
+            "Hello! I'm your **UofT Academic Advisor** 🎓\n\n"
+            "I can help you with:\n"
+            "- 📚 Program requirements and course information\n"
+            "- 💡 Personalized program recommendations\n"
+            "- 📅 Booking an appointment with an academic advisor\n\n"
+            "What can I help you with today?"
+        )
     ).send()
-
 
 # ============================================================
 # Handle incoming messages

@@ -1,0 +1,15 @@
+/* 替换左上角粉色 Chainlit logo */
+.lucide-bot-message-square {
+    display: none !important;
+}
+
+header img, nav img {
+    content: url('/public/logo_light.png') !important;
+}
+
+/* 或者直接用背景图替换 */
+[class*="logo"] {
+    background-image: url('/public/logo_light.png') !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+}

@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))  # 指向 app/
+sys.path.insert(0, os.path.dirname(__file__)) 
 
 from langchain_core.tools import tool
 from rag import rag_answer
