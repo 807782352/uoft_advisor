@@ -110,12 +110,7 @@ def book_advisor_appointment(
     This tool requires 3 parameters — collect them through conversation if missing:
       - student_name: the student's full name
       - topic: what they want to discuss (e.g. program selection, course planning)
-      - preferred_time: their preferred meeting time (e.g. "Monday afternoon")
-    
-    Examples of when to use:
-    - "I want to book an appointment with an advisor"
-    - "Can I speak to someone about my program choices?"
-    - "I need help, can I meet with an advisor?"
+      - preferred_time: a specific future date and time (e.g. "Monday April 14th at 2pm")
     """
     confirmation = f"""
 ✅ **Appointment Confirmed!**
@@ -126,13 +121,12 @@ Here are your booking details:
 - **Preferred Time:** {preferred_time}
 - **Advisor:** UofT Academic Advising Office
 - **Location:** Sidney Smith Hall, Room 1006 (or via Zoom upon request)
-- **Confirmation #:** ADV-{abs(hash(student_name + topic))% 100000:05d}
+- **Confirmation #:** ADV-{abs(hash(student_name + topic)) % 100000:05d}
 
 An advisor will reach out to confirm your appointment within 1-2 business days.
-If you need to reschedule, please contact advising@utoronto.ca.
+If you need to reschedule, please call us at **416-978-2011** (St. George Campus).
 """
     return confirmation
-
 
 # ============================================================
 # Export all tools
