@@ -1,5 +1,5 @@
 # config.py
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings3
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 import os
 
 STUDENT_ID = os.environ.get("STUDENT_ID", "your_fallback_id")
