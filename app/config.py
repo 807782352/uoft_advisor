@@ -1,7 +1,8 @@
 # config.py
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings3
+import os
 
-STUDENT_ID = "1003870554"
+STUDENT_ID = os.environ.get("STUDENT_ID", "your_fallback_id")
 
 # LLM - finalproject endpoint
 llm = ChatOpenAI(

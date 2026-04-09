@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: uoft-advisor
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m chainlit run app.py --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: STUDENT_ID
+        sync: false  #  Render will allow you to set this environment variable in the Render dashboard, but it won't be automatically updated if you change it in the dashboard. You would need to redeploy the service for changes to take effect.
