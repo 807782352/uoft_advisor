@@ -1,32 +1,34 @@
 """
 UofT Academic Calendar Scraper
 ================================
-Scrapes all undergraduate program pages from UofT.
 Strategy:
-  1. Use Selenium to get all 378 "View program details" links
-  2. Visit each program page to find the "Printer-friendly Version" URL
-  3. Scrape the printer-friendly page for program details
+  1. Selenium fetches all 378 "View program details" links from the UofT listing page
+  2. UTSC programs are fetched separately from utsc.calendar.utoronto.ca/program-sections
+  3. Each program page is visited to find its "Printer-friendly Version" URL
+  4. Printer-friendly pages are scraped and parsed into structured records
 
 Usage:
-  python scraper.py            # Scrape all programs
-  python scraper.py --test     # Scrape first 5 only (for testing)
+  python scraper.py          # Scrape all programs
+  python scraper.py --test   # Scrape first 5 only
 
 Output: data/knowledge_base.json
 """
 
-import requests
-from bs4 import BeautifulSoup
 import json
-import time
 import os
+import re
 import sys
+import time
 from urllib.parse import urljoin
 
-# ============================================================
-# Configuration
-# ============================================================
+import requests
+from bs4 import BeautifulSoup
 
-LISTING_URL = "https://www.utoronto.ca/academics/undergraduate-programs"
+# ── Config ────────────────────────────────────────────────────────────────────
+
+LISTING_URL  = "https://www.utoronto.ca/academics/undergraduate-programs"
+UTSC_CAL_URL = "https://utsc.calendar.utoronto.ca/program-sections"
+UTSC_PRINT   = "https://utsc.calendar.utoronto.ca/print/view/pdf/calendar_section_view/print_page/debug?view_args[]={slug}"
 
 HEADERS = {
     "User-Agent": (
@@ -36,31 +38,42 @@ HEADERS = {
     )
 }
 
-OUTPUT_DIR = "data"
+OUTPUT_DIR  = "data"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "knowledge_base.json")
-CRAWL_DELAY = 1.0
+CRAWL_DELAY = 1.0   # seconds between requests
 
 
-# ============================================================
-# Function 1: Get all program links using Selenium
-# ============================================================
+# ── Step 1: Collect program links ─────────────────────────────────────────────
 
 def get_all_program_links() -> list[dict]:
     """
-    Use Selenium to get all 'View program details' links from listing page.
+    Return a list of program dicts:
+      {name, program_url, campus, print_url_override (optional)}
 
-    Returns:
-        [{"name": "Accounting", "program_url": "https://artsci.../section/..."}, ...]
+    Sources:
+      - Main listing page (Selenium, covers UTSG / UTM / some UTSC)
+      - UTSC calendar page (requests, covers remaining UTSC sections)
     """
+    programs    = _fetch_listing_page_links()
+    utsc_extras = _fetch_utsc_calendar_links(seen={p["program_url"] for p in programs})
+    programs.extend(utsc_extras)
+
+    from collections import Counter
+    counts = Counter(p["campus"] for p in programs)
+    print(f"✅ Total program links: {len(programs)}")
+    for campus, n in counts.most_common():
+        print(f"   {campus}: {n}")
+
+    return programs
+
+
+def _fetch_listing_page_links() -> list[dict]:
+    """Use Selenium to get all 'View program details' links from the main listing page."""
     from selenium import webdriver
     from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.webdriver.common.by import By
     from webdriver_manager.chrome import ChromeDriverManager
 
-    print(f"📋 Starting browser to fetch program list...")
-
+    print("🌐 Opening listing page with Selenium...")
     options = webdriver.ChromeOptions()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -73,225 +86,197 @@ def get_all_program_links() -> list[dict]:
 
     try:
         driver.get(LISTING_URL)
+        time.sleep(10)  # wait for JS to render
 
-        # Wait for program links to appear
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located(
-                (By.PARTIAL_LINK_TEXT, "View program details")
-            )
-        )
-        time.sleep(5)
-
-        # Scroll through the page to trigger lazy loading
-        scroll_height = driver.execute_script("return document.body.scrollHeight")
-        current = 0
-        while current < scroll_height:
-            driver.execute_script(f"window.scrollTo(0, {current});")
+        # Scroll to trigger lazy-loaded content
+        height = driver.execute_script("return document.body.scrollHeight")
+        pos = 0
+        while pos < height:
+            driver.execute_script(f"window.scrollTo(0, {pos});")
             time.sleep(0.3)
-            current += 1000
-            scroll_height = driver.execute_script("return document.body.scrollHeight")
-
+            pos += 1000
+            height = driver.execute_script("return document.body.scrollHeight")
         time.sleep(3)
-        soup = BeautifulSoup(driver.page_source, "html.parser")
 
+        soup = BeautifulSoup(driver.page_source, "html.parser")
     finally:
         driver.quit()
 
-    programs = []
-    seen_urls = set()
-
-    # Find all "View program details" links
+    programs, seen = [], set()
     for a in soup.find_all("a", string="View program details"):
         href = a.get("href", "").strip()
-        if not href or href in seen_urls:
+        if not href or href in seen:
             continue
 
-        # Get program name from parent element
-        parent = a.find_parent(["div", "li", "article"])
-        if parent:
-            name_el = parent.find(["h3", "h2", "strong"])
-            name = name_el.get_text(strip=True) if name_el else href.split("/")[-1].replace("-", " ").title()
-        else:
-            name = href.split("/")[-1].replace("-", " ").title()
-
-        # Determine campus from URL
+        # Infer campus from URL domain
         if "utm.calendar" in href:
             campus = "UTM"
-        elif "utsc.calendar" in href or "utsc.utoronto.ca" in href:
+        elif "utsc" in href:
             campus = "UTSC"
         else:
             campus = "UTSG"
 
-        seen_urls.add(href)
-        programs.append({
-            "name":        name,
-            "program_url": href,
-            "campus":      campus,
-        })
+        # Get program name from nearest heading in parent container
+        parent   = a.find_parent(["div", "li", "article"])
+        name_tag = parent.find(["h3", "h2", "strong"]) if parent else None
+        name     = name_tag.get_text(strip=True) if name_tag else href.split("/")[-1].replace("-", " ").title()
 
-    print(f"✅ Found {len(programs)} program pages")
-    from collections import Counter
-    for campus, count in Counter(p["campus"] for p in programs).most_common():
-        print(f"   {campus}: {count}")
+        seen.add(href)
+        programs.append({"name": name, "program_url": href, "campus": campus})
 
+    print(f"   Found {len(programs)} links on listing page")
     return programs
 
 
-# ============================================================
-# Function 2: Get printer-friendly URL from program page
-# ============================================================
-
-def get_printer_friendly_url(
-    program_url: str,
-    session: requests.Session
-) -> str | None:
+def _fetch_utsc_calendar_links(seen: set) -> list[dict]:
     """
-    Visit a program page and find the 'Printer-friendly Version' link.
+    Fetch UTSC section links from utsc.calendar.utoronto.ca/program-sections.
+    Uses a different printer-friendly URL format than artsci/utm.
+    """
+    print("🌐 Fetching UTSC calendar sections...")
+    extras = []
+    try:
+        resp = requests.get(UTSC_CAL_URL, headers=HEADERS, timeout=15)
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-    Returns:
-        Full printer-friendly URL, or None if not found.
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if "/section/" not in href:
+                continue
+
+            slug     = href.split("/section/")[-1].strip()
+            full_url = f"https://utsc.calendar.utoronto.ca/section/{slug}"
+            if full_url in seen:
+                continue
+
+            seen.add(full_url)
+            extras.append({
+                "name":               a.get_text(strip=True),
+                "program_url":        full_url,
+                "campus":             "UTSC",
+                "print_url_override": UTSC_PRINT.format(slug=slug),
+            })
+
+        print(f"   Found {len(extras)} additional UTSC calendar sections")
+    except Exception as e:
+        print(f"   ⚠️  UTSC calendar fetch failed: {e}")
+
+    return extras
+
+
+# ── Step 2: Resolve printer-friendly URL ──────────────────────────────────────
+
+def get_printer_friendly_url(program_url: str, session: requests.Session) -> str | None:
+    """
+    Visit a program page and return the absolute printer-friendly URL,
+    or None if not found.
     """
     try:
         resp = session.get(program_url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Find "Printer-friendly Version" link
-        printer_link = soup.find(
-            "a", string=lambda t: t and "Printer-friendly" in t
-        )
-
-        if printer_link:
-            href = printer_link.get("href", "").strip()
-            # Convert relative URL to absolute
-            full_url = urljoin(program_url, href)
-            return full_url
-
-        return None
-
+        link = soup.find("a", string=lambda t: t and "Printer-friendly" in t)
+        if link:
+            return urljoin(program_url, link["href"].strip())
     except Exception as e:
-        print(f"    ⚠️  Error fetching {program_url}: {e}")
-        return None
+        print(f"    ⚠️  Could not fetch {program_url}: {e}")
+    return None
 
 
-# ============================================================
-# Function 3: Parse a printer-friendly page
-# ============================================================
+# ── Step 3: Parse printer-friendly pages ─────────────────────────────────────
 
-def parse_program_page(
-    soup: BeautifulSoup,
-    section_url: str,
-    campus: str = "UTSG"
-) -> list[dict]:
+def parse_program_page(soup: BeautifulSoup, url: str, campus: str = "UTSG") -> list[dict]:
     """
-    Parse a printer-friendly program page and extract all sub-programs.
-
-    Returns:
-        A list of dicts, one per sub-program found on the page.
+    Parse a printer-friendly page and return a list of program records.
+    Handles three formats:
+      - artsci / utm  : views-row divs with enrolment/completion fields
+      - UTSC calendar : views-row divs (same structure)
+      - Engineering   : h2 headings with BASC program codes
     """
     records = []
 
-    # Department name from h1 (exclude site navigation h1)
-    department_name = "Unknown"
+    # Department name — first h1 that is not the site title
+    department = "Unknown"
     for h1 in soup.find_all("h1"):
-        classes = h1.get("class") or []
-        if "site-name" not in classes:
-            department_name = h1.get_text(strip=True)
+        if "site-name" not in (h1.get("class") or []):
+            department = h1.get_text(strip=True)
             break
 
-    # Extract Introduction section
-    introduction = _extract_introduction(soup)
+    introduction = _extract_intro(soup)
 
-    # Try standard views-row format (artsci/utm)
+    # Format A: views-row (artsci, utm, utsc)
     rows = soup.find_all("div", class_="views-row")
-    if rows:
-        for row in rows:
-            h2 = row.find("h2")
-            if not h2:
-                continue
+    for row in rows:
+        h2 = row.find("h2")
+        if not h2:
+            continue
 
-            raw_title = h2.get_text(strip=True)
-            program_name, program_code = _parse_title(raw_title)
+        name, code = _split_title(h2.get_text(strip=True))
+        if not code and any(kw in name for kw in ["Programs", "Courses", "Introduction"]):
+            continue
 
-            # Skip section headers
-            if not program_code and any(
-                kw in program_name for kw in ["Programs", "Courses", "Introduction"]
-            ):
-                continue
+        enrolment  = _extract_field(row, "enrolment")
+        completion = _extract_field(row, "completion")
+        if not enrolment and not completion:
+            continue
 
-            enrolment = _extract_field(row, "enrolment")
-            completion = _extract_field(row, "completion")
+        records.append(_build_record(name, code, department, campus, url,
+                                     introduction, enrolment, completion))
 
-            if not enrolment and not completion:
-                continue
-
-            records.append(_make_record(
-                program_name, program_code, department_name,
-                campus, section_url, introduction, enrolment, completion
-            ))
-
-    # Try Engineering format (h2 with program code in parentheses)
+    # Format B: Engineering h2 headings (e.g. "... Chemical Engineering (AECHEBASC)")
     if not records:
         for h2 in soup.find_all("h2"):
             text = h2.get_text(strip=True)
-            # Engineering programs have code like (AECHEBASC) or (AECPEBASC)
-            if not ("(" in text and "BASC" in text or "BASc" in text.lower()):
+            if not re.search(r'\([A-Z]{5,}\)', text):
                 continue
 
-            program_name, program_code = _parse_engineering_title(text)
-            if not program_name:
+            name, code = _split_engineering_title(text)
+            if not name:
                 continue
 
-            # Extract description from following paragraphs
-            description_parts = []
+            # Grab the first few paragraphs as description
+            desc_parts = []
             for sib in h2.find_next_siblings():
                 if sib.name == "h2":
                     break
-                if sib.name in ["p", "ul"]:
+                if sib.name in ("p", "ul"):
                     t = sib.get_text(strip=True)
                     if t:
-                        description_parts.append(t)
-                if len(description_parts) > 5:
+                        desc_parts.append(t)
+                if len(desc_parts) >= 5:
                     break
 
-            description = "\n".join(description_parts)
+            desc = "\n".join(desc_parts)
+            if desc:
+                records.append(_build_record(name, code, department, campus, url,
+                                             introduction or desc, "", desc))
 
-            if description:
-                records.append(_make_record(
-                    program_name, program_code, department_name,
-                    campus, section_url, introduction or description, "", description
-                ))
-
-    # Fallback: Department-level record
+    # Fallback: store page-level intro as a department record
     if not records and introduction:
-        records.append(_make_record(
-            department_name, "", department_name,
-            campus, section_url, introduction, "", "",
-            program_type="Department"
-        ))
+        records.append(_build_record(department, "", department, campus, url,
+                                     introduction, "", "", program_type="Department"))
 
     return records
 
 
-# ============================================================
-# Helper functions
-# ============================================================
+# ── Parsing helpers ───────────────────────────────────────────────────────────
 
-def _extract_introduction(soup: BeautifulSoup) -> str:
-    intro_h2 = soup.find("h2", string=lambda t: t and "Introduction" in t)
-    if not intro_h2:
+def _extract_intro(soup: BeautifulSoup) -> str:
+    h2 = soup.find("h2", string=lambda t: t and "Introduction" in t)
+    if not h2:
         return ""
     parts = []
-    for sibling in intro_h2.find_next_siblings():
-        if sibling.name == "h2":
+    for sib in h2.find_next_siblings():
+        if sib.name == "h2":
             break
-        text = sibling.get_text(strip=True)
-        if text:
-            parts.append(text)
+        t = sib.get_text(strip=True)
+        if t:
+            parts.append(t)
     return "\n".join(parts)
 
 
 def _extract_field(row: BeautifulSoup, field: str) -> str:
+    # Format 1: div with class containing field name
     div = row.find("div", class_=lambda c: c and f"{field}-requirements" in c)
     if div:
         label = div.find("strong")
@@ -299,8 +284,9 @@ def _extract_field(row: BeautifulSoup, field: str) -> str:
             label.decompose()
         return div.get_text(separator="\n", strip=True)
 
-    keyword = "Enrolment" if field == "enrolment" else "Completion"
-    h3 = row.find("h3", string=lambda t: t and keyword in t)
+    # Format 2: h3 heading followed by content
+    kw = "Enrolment" if field == "enrolment" else "Completion"
+    h3 = row.find("h3", string=lambda t: t and kw in t)
     if h3:
         parts = []
         for sib in h3.find_next_siblings():
@@ -312,176 +298,148 @@ def _extract_field(row: BeautifulSoup, field: str) -> str:
     return ""
 
 
-def _parse_title(raw_title: str) -> tuple[str, str]:
-    if " - " in raw_title:
-        parts = raw_title.rsplit(" - ", 1)
+def _split_title(raw: str) -> tuple[str, str]:
+    if " - " in raw:
+        parts = raw.rsplit(" - ", 1)
         return parts[0].strip(), parts[1].strip()
-    return raw_title.strip(), ""
+    return raw.strip(), ""
 
 
-def _parse_engineering_title(raw_title: str) -> tuple[str, str]:
-    """Parse Engineering program title like 'Undergraduate Program in Chemical Engineering (AECHEBASC)'"""
-    import re
-    match = re.search(r'\(([A-Z]{3,})\)', raw_title)
-    if match:
-        code = match.group(1)
-        name = raw_title[:match.start()].strip()
-        # Clean up common prefixes
-        for prefix in ["Undergraduate Program in ", "Program in "]:
-            if name.startswith(prefix):
-                name = name[len(prefix):]
-        return name.strip(), code
-    return "", ""
+def _split_engineering_title(raw: str) -> tuple[str, str]:
+    m = re.search(r'\(([A-Z]{3,})\)', raw)
+    if not m:
+        return "", ""
+    code = m.group(1)
+    name = raw[:m.start()].strip()
+    for prefix in ("Undergraduate Program in ", "Program in "):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+    return name.strip(), code
 
 
-def _get_program_type(name: str) -> str:
-    for ptype in ["Specialist", "Major", "Minor", "Certificate", "Focus"]:
-        if ptype.lower() in name.lower():
-            return ptype
+def _get_type(name: str) -> str:
+    for t in ("Specialist", "Major", "Minor", "Certificate", "Focus"):
+        if t.lower() in name.lower():
+            return t
     return "Other"
 
 
-def _make_record(
-    program_name, program_code, department, campus,
-    url, introduction, enrolment, completion,
-    program_type=None
-) -> dict:
+def _build_record(name, code, department, campus, url,
+                  intro, enrolment, completion, program_type=None) -> dict:
     campus_label = {
         "UTSG": "St. George Campus",
         "UTM":  "University of Toronto Mississauga (UTM)",
         "UTSC": "University of Toronto Scarborough (UTSC)",
     }.get(campus, campus)
 
-    ptype = program_type or _get_program_type(program_name)
-
-    full_text = "\n".join([
-        f"Program: {program_name}",
-        f"Program Code: {program_code}" if program_code else "",
+    full_text = "\n".join(filter(None, [
+        f"Program: {name}",
+        f"Program Code: {code}" if code else "",
         f"Department: {department}",
         f"Campus: {campus_label}",
         "",
         "=== About This Program ===",
-        introduction or "No introduction available.",
+        intro or "No introduction available.",
         "",
         "=== Enrolment Requirements ===",
         enrolment or "No enrolment requirements listed.",
         "",
         "=== Completion Requirements ===",
         completion or "No completion requirements listed.",
-    ])
+    ]))
 
     return {
-        "program_name":            program_name,
-        "program_code":            program_code,
-        "program_type":            ptype,
+        "program_name":            name,
+        "program_code":            code,
+        "program_type":            program_type or _get_type(name),
         "department":              department,
         "campus":                  campus,
         "url":                     url,
-        "introduction":            introduction,
+        "introduction":            intro,
         "enrolment_requirements":  enrolment,
         "completion_requirements": completion,
         "full_text":               full_text,
     }
 
 
-# ============================================================
-# Function 4: Main scraping flow
-# ============================================================
+# ── Main scraping flow ────────────────────────────────────────────────────────
 
-def scrape_all(max_pages: int = None):
-    """
-    Main scraping flow:
-    1. Get all program links via Selenium
-    2. For each: find printer-friendly URL → scrape → parse
-    """
+def scrape_all(max_pages: int = None) -> list[dict]:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Step 1: Get all program links
     programs = get_all_program_links()
-
     if max_pages:
         programs = programs[:max_pages]
-        print(f"⚠️  Test mode: scraping first {max_pages} pages only\n")
+        print(f"⚠️  Test mode: first {max_pages} programs only\n")
 
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    all_records = []
-    failed = []
-    seen_print_urls = set()  # avoid duplicate printer-friendly pages
-    total = len(programs)
+    all_records, failed, seen_print_urls = [], [], set()
 
     for i, item in enumerate(programs, 1):
-        print(f"[{i}/{total}] [{item['campus']}] {item['name']}")
+        print(f"[{i}/{len(programs)}] [{item['campus']}] {item['name']}")
 
-        # Step 2: Get printer-friendly URL
-        print_url = get_printer_friendly_url(item["program_url"], session)
+        # Resolve printer-friendly URL
+        print_url = (
+            item.get("print_url_override")
+            or get_printer_friendly_url(item["program_url"], session)
+        )
 
         if not print_url:
-            print(f"  ⚠️  No printer-friendly URL found")
+            print("  ⚠️  No printer-friendly URL — skipping")
             failed.append(item["program_url"])
             time.sleep(CRAWL_DELAY)
             continue
 
-        # Skip duplicate printer-friendly pages
-        # (multiple programs may share the same section page)
         if print_url in seen_print_urls:
-            print(f"  ⏭️  Already scraped this page")
+            print("  ⏭️  Already scraped this section")
             continue
-
         seen_print_urls.add(print_url)
 
-        # Step 3: Scrape printer-friendly page
+        # Scrape and parse
         try:
             resp = session.get(print_url, headers=HEADERS, timeout=15)
             resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            records = parse_program_page(soup, print_url, item["campus"])
-
+            records = parse_program_page(
+                BeautifulSoup(resp.text, "html.parser"),
+                print_url,
+                item["campus"]
+            )
             if records:
                 all_records.extend(records)
-                print(f"  ✅ Extracted {len(records)} sub-program(s)")
+                print(f"  ✅ {len(records)} sub-program(s)")
             else:
-                print(f"  ⚠️  No content extracted")
-
+                print("  ⚠️  No content extracted")
         except Exception as e:
-            print(f"  ❌ Failed: {e}")
+            print(f"  ❌ {e}")
             failed.append(print_url)
 
         time.sleep(CRAWL_DELAY)
 
-    _save_results(all_records, failed)
+    _save(all_records, failed)
     return all_records
 
 
-def _save_results(all_records: list, failed: list):
+def _save(records: list, failed: list):
     from collections import Counter
-    print(f"\n💾 Saving results...")
-    print(f"  Total records: {len(all_records)}")
-
-    campus_counts = Counter(r["campus"] for r in all_records)
-    for campus, count in campus_counts.most_common():
-        print(f"  {campus}: {count} records")
+    print(f"\n💾 Saving {len(records)} records...")
+    for campus, n in Counter(r["campus"] for r in records).most_common():
+        print(f"   {campus}: {n}")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_records, f, ensure_ascii=False, indent=2)
-    print(f"  ✅ Saved to {OUTPUT_FILE}")
+        json.dump(records, f, ensure_ascii=False, indent=2)
+    print(f"✅ Saved → {OUTPUT_FILE}")
 
     if failed:
-        failed_file = os.path.join(OUTPUT_DIR, "failed_urls.txt")
-        with open(failed_file, "w") as f:
+        fail_path = os.path.join(OUTPUT_DIR, "failed_urls.txt")
+        with open(fail_path, "w") as f:
             f.write("\n".join(failed))
-        print(f"  ⚠️  {len(failed)} failed — logged to {failed_file}")
+        print(f"⚠️  {len(failed)} failures → {fail_path}")
 
 
-# ============================================================
-# Entry point
-# ============================================================
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if "--test" in sys.argv:
-        records = scrape_all(max_pages=5)
-    else:
-        records = scrape_all()
-
-    print(f"\n🎉 Done! Extracted {len(records)} program records in total.")
+    records = scrape_all(max_pages=5 if "--test" in sys.argv else None)
+    print(f"\n🎉 Done! {len(records)} records total.")

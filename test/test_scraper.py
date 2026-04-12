@@ -196,7 +196,7 @@ def test_printer_friendly_flow():
     session = requests.Session()
     session.headers.update({"User-Agent": "Mozilla/5.0"})
 
-    for a in all_links[:3]:
+    for a in all_links[:10]:
         program_url = a["href"]
         print(f"\n程序页面: {program_url}")
 
@@ -212,6 +212,86 @@ def test_printer_friendly_flow():
             print(f"  ❌ 没有找到 Printer-friendly 链接")
 
 
+def debug_utsc():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from webdriver_manager.chrome import ChromeDriverManager
+    from bs4 import BeautifulSoup
+    import time
+
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=options
+    )
+
+    driver.get("https://www.utoronto.ca/academics/undergraduate-programs")
+    time.sleep(10)
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    driver.quit()
+
+    all_links = soup.find_all("a", string="View program details")
+    
+    utsc_admissions = [a["href"] for a in all_links if "utsc.utoronto.ca/admissions" in a["href"]]
+    utsc_calendar   = [a["href"] for a in all_links if "utsc.calendar.utoronto.ca" in a["href"]]
+    
+    print(f"UTSC admissions 格式: {len(utsc_admissions)}")
+    print(f"UTSC calendar 格式:   {len(utsc_calendar)}")
+    print("\nUTSC calendar 链接:")
+    for l in utsc_calendar:
+        print(f"  {l}")
+        
+def debug_utsc_calendar():
+    import requests
+    from bs4 import BeautifulSoup
+
+    url = "https://utsc.calendar.utoronto.ca/program-sections"
+    resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    print(f"Status: {resp.status_code}")
+    
+    # 找所有链接
+    links = soup.find_all("a", href=True)
+    print(f"总链接数: {len(links)}")
+    
+    # 找 section 链接
+    section_links = [a for a in links if "/section/" in a.get("href", "")]
+    print(f"Section 链接数: {len(section_links)}")
+    for a in section_links[:10]:
+        print(f"  {a['href']} — {a.get_text(strip=True)}")
+
+
+def debug_utsc_add():
+    import requests
+    from bs4 import BeautifulSoup
+    from urllib.parse import urljoin
+
+    HEADERS = {"User-Agent": "Mozilla/5.0"}
+    
+    utsc_resp = requests.get(
+        "https://utsc.calendar.utoronto.ca/program-sections",
+        headers=HEADERS, timeout=15
+    )
+    utsc_soup = BeautifulSoup(utsc_resp.text, "html.parser")
+
+    programs = []
+    for a in utsc_soup.find_all("a", href=True):
+        href = a["href"]
+        if "/section/" not in href:
+            continue
+        slug = href.split("/section/")[-1].strip()
+        full_url = f"https://utsc.calendar.utoronto.ca/section/{slug}"
+        print_url = f"https://utsc.calendar.utoronto.ca/print/view/pdf/calendar_section_view/print_page/debug?view_args[]={slug}"
+        name = a.get_text(strip=True)
+        programs.append({"name": name, "program_url": full_url, "print_url_override": print_url})
+
+    print(f"UTSC calendar programs: {len(programs)}")
+    for p in programs[:5]:
+        print(f"  {p['name']} → {p['print_url_override']}")
+
+
 
 test_get_slugs()
 # test_parse_page()
@@ -221,4 +301,8 @@ test_get_slugs()
 # --- Other Tests ---
 # debug_missing()
 # debug_raw_links()
+# debug_utsc()
+# debug_utsc_calendar()
+# debug_utsc_add()
+
 # test_printer_friendly_flow()
