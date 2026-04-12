@@ -190,3 +190,7 @@ See `requirements.txt` for full list. Key libraries:
 - `chainlit`
 - `faiss-cpu`
 - `beautifulsoup4`, `requests`
+
+
+## QR-Code
+![alt text](QR-Code.jpg)
