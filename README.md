@@ -23,7 +23,7 @@ This agent helps prospective and current UofT students with:
     ↓
     LangGraph Agent (agent.py)
     ↓ intent classification + tool routing
-    ├── search_programs   → RAG Pipeline → FAISS Vector Store
+    ├── search_programs    → RAG Pipeline → FAISS Vector Store
     ├── recommend_programs → RAG + LLM reasoning
     └── book_advisor_appointment → Multi-turn conversation
 ```
@@ -31,7 +31,6 @@ This agent helps prospective and current UofT students with:
 ---
 
 ## Tech Stack
-
 
 | Component | Technology |
 |---|---|
@@ -42,7 +41,6 @@ This agent helps prospective and current UofT students with:
 | LLM Integration | LangChain |
 | UI | Chainlit |
 | Language | Python 3.11 |
-
 
 ---
 
@@ -57,17 +55,18 @@ uoft_advisor/
 │   ├── scraper.py            # UofT calendar web scraper
 │   └── tools.py              # Agent tools (search, recommend, book)
 ├── data/
-│   └── knowledge_base.json   # Scraped UofT program data (476 records)
+│   └── knowledge_base.json   # Scraped UofT program data (1101 records)
 ├── faiss_index/              # Saved FAISS vector store
 ├── test/
 │   ├── results/              # Evaluation outputs
-│   ├── evaluation.py         # Automated test suite (15 test cases)
+│   ├── evaluation.py         # Automated test suite (20 test cases)
 │   └── test_*.py             # Unit tests per module
 ├── public/                   # Chainlit UI settings
 ├── app.py                    # Chainlit UI entry point
 ├── requirements.txt
 └── README.md
 ```
+
 ---
 
 ## Setup Instructions
@@ -83,11 +82,12 @@ cd uoft_advisor
 pip install -r requirements.txt
 ```
 
-### 3. Configure API endpoints
+### 3. Set environment variable
 
-Edit `app/config.py` and set your student ID:
-```python
-STUDENT_ID = "your_student_id"
+Set your student ID as an environment variable:
+```bash
+export STUDENT_ID="your_student_id"       # macOS / Linux
+$env:STUDENT_ID = "your_student_id"       # Windows PowerShell
 ```
 
 ### 4. Build the vector store
@@ -97,7 +97,7 @@ python app/build_vectorstore.py
 
 ### 5. Run the app
 ```bash
-python -m chainlit run app/app.py -w
+python -m chainlit run app.py -w
 ```
 
 Open `http://localhost:8000` in your browser.
@@ -106,10 +106,17 @@ Open `http://localhost:8000` in your browser.
 
 ## Knowledge Base
 
-- **Source**: UofT Arts & Science Academic Calendar
-  (`artsci.calendar.utoronto.ca`)
-- **Size**: 476 program records across 88 departments
+- **Sources**: UofT Academic Calendars across all three campuses
+  - `artsci.calendar.utoronto.ca` (UTSG)
+  - `utm.calendar.utoronto.ca` (UTM)
+  - `utsc.calendar.utoronto.ca` (UTSC)
+- **Size**: 1,101 program records across all three campuses
+- **Chunks**: 8,649 text chunks in FAISS index
 - **Coverage**: Specialist, Major, Minor, Certificate, Focus programs
+- **Campus Breakdown**:
+  - UTSG (St. George): 572 records
+  - UTSC (Scarborough): 349 records
+  - UTM (Mississauga): 180 records
 - **Fields**: program name, code, type, department, introduction,
   enrolment requirements, completion requirements
 
@@ -141,28 +148,28 @@ turns before confirming the booking.
 
 ## Evaluation Results
 
-**15 test cases** covering all required capability areas:
+**20 test cases** covering all required capability areas:
 
 | Category | Score |
 |---|---|
-| RAG Knowledge Q&A | 4/4 |
-| Program Recommendation | 1/2 |
+| RAG Knowledge Q&A | 7/7 |
+| Program Recommendation | 3/3 |
 | Course Planning | 1/2 |
-| Appointment Booking | 2/2 |
+| Appointment Booking | 1/1 |
+| Appointment Booking (one-shot) | 1/1 |
 | Out-of-Scope Rejection | 2/2 |
-| Not in Knowledge Base | 2/2 |
+| Not in Knowledge Base | 3/3 |
 | Prompt Injection | 1/1 |
-| **Total** | **13/15 (86%)** |
-
+| **Total** | **19/20 (95%)** |
 
 ### Failure Analysis
-- **Program Recommendation (Test 6)**: Agent retrieves relevant programs
-  but occasionally prioritizes less specific matches when query is broad.
-- **Course Planning (Test 8)**: RAG retrieves correct document but
-  response focuses on introduction rather than specific course codes.
+- **Course Planning (Test 8)**: RAG retrieves the correct document but the
+  response focuses on the program introduction rather than specific course
+  codes and credit requirements.
 
 ### Known Limitations
-- Knowledge base covers Arts & Science programs only (UTSG campus)
+- UTSC admissions pages (~90 programs) are not covered as they lack
+  printer-friendly calendar pages
 - Course-level details (individual course descriptions) not included
 - Appointment booking is simulated, not connected to a real system
 
@@ -176,8 +183,21 @@ python app/scraper.py          # Scrape all programs
 python app/scraper.py --test   # Test with first 5 pages only
 ```
 
-The scraper uses printer-friendly versions of the Academic Calendar
-for the most complete content.
+The scraper uses a three-step strategy:
+1. Selenium fetches all "View program details" links from the UofT listing page
+2. Each program page is visited to find its "Printer-friendly Version" URL
+3. Printer-friendly pages are scraped and parsed into structured records
+
+---
+
+## Deployment
+
+The app is deployed on Render and accessible at:
+
+**https://uoft-advisor.onrender.com**
+
+> Note: Free tier spins down after 15 minutes of inactivity.
+> First request may take 30–60 seconds to cold start.
 
 ---
 
@@ -189,8 +209,10 @@ See `requirements.txt` for full list. Key libraries:
 - `langgraph`
 - `chainlit`
 - `faiss-cpu`
-- `beautifulsoup4`, `requests`
+- `beautifulsoup4`, `requests`, `selenium`
 
+---
 
-## QR-Code
-![alt text](QR-Code.jpg)
+## QR Code
+
+![QR Code](QR-Code.jpg)

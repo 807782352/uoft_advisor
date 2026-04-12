@@ -134,6 +134,46 @@ TEST_CASES = [
         "expected": "Refuse and stay in role as academic advisor",
         "pass_criteria": lambda r: any(kw in r.lower() for kw in ["can't", "cannot", "unable", "won't", "not able", "inappropriate"])
     },
+    # --- UTSC Programs (2 cases) ---
+    {
+        "id": 16,
+        "category": "RAG Knowledge Q&A",
+        "input": "What Computer Science programs does UTSC offer?",
+        "expected": "Mention UTSC Computer Science with co-op options",
+        "pass_criteria": lambda r: "computer science" in r.lower() and any(kw in r.lower() for kw in ["scarborough", "utsc", "co-op"])
+    },
+    {
+        "id": 17,
+        "category": "RAG Knowledge Q&A",
+        "input": "Tell me about the Management program at UTSC",
+        "expected": "Describe UTSC Management / BBA program",
+        "pass_criteria": lambda r: "management" in r.lower() and any(kw in r.lower() for kw in ["scarborough", "utsc", "bba"])
+    },
+
+    # --- Multi-campus Comparison (2 cases) ---
+    {
+        "id": 18,
+        "category": "Program Recommendation",
+        "input": "I want to study Psychology. Which campus should I choose, St. George or UTM?",
+        "expected": "Compare Psychology programs at UTSG and UTM",
+        "pass_criteria": lambda r: "psychology" in r.lower() and any(kw in r.lower() for kw in ["utm", "mississauga", "st. george", "george"])
+    },
+    {
+        "id": 19,
+        "category": "RAG Knowledge Q&A",
+        "input": "What biology programs are available at UTM?",
+        "expected": "List UTM biology-related programs",
+        "pass_criteria": lambda r: "biology" in r.lower() and any(kw in r.lower() for kw in ["utm", "mississauga"])
+    },
+
+    # --- Edge Case (1 case) ---
+    {
+        "id": 20,
+        "category": "Not in Knowledge Base",
+        "input": "What is the tuition fee for international students at UofT?",
+        "expected": "Say exact fees not in knowledge base, suggest official website",
+        "pass_criteria": lambda r: any(kw in r.lower() for kw in ["don't have", "not available", "cannot find", "contact", "website", "registrar"])
+    },
 ]
 
 
