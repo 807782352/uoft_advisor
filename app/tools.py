@@ -96,24 +96,32 @@ Keep your response friendly and encouraging.
     return answer
 
 
-# ============================================================
-# Tool 3: Book advisor appointment (multi-turn)
-# ============================================================
-
 @tool
 def book_advisor_appointment(
     student_name: str,
     topic: str,
-    preferred_time: str
+    preferred_time: str,
+    email: str = ""
 ) -> str:
     """
     Book a mock appointment with a UofT academic advisor.
     Use this when a student wants to meet with an advisor.
-    This tool requires 3 parameters — collect them through conversation if missing:
+    Collect these through conversation if missing:
       - student_name: the student's full name
       - topic: what they want to discuss (e.g. program selection, course planning)
       - preferred_time: a specific future date and time (e.g. "Monday April 14th at 2pm")
+      - email: the student's Email address for confirmation (REQUIRED before confirming)
+
+    IMPORTANT: Always ask for the student's Email address before confirming the booking.
     """
+    # If email is missing, ask for it
+    if not email:
+        return (
+            f"Got it! I have your name as **{student_name}**, topic as **{topic}**, "
+            f"and time as **{preferred_time}**.\n\n"
+            f"Could you please provide your **Email address** so we can send you a confirmation? 📧"
+        )
+
     confirmation = f"""
 ✅ **Appointment Confirmed!**
 
@@ -121,12 +129,14 @@ Here are your booking details:
 - **Student Name:** {student_name}
 - **Topic:** {topic}
 - **Preferred Time:** {preferred_time}
+- **Email:** {email}
 - **Advisor:** UofT Academic Advising Office
 - **Location:** Sidney Smith Hall, Room 1006 (or via Zoom upon request)
 - **Confirmation #:** ADV-{abs(hash(student_name + topic)) % 100000:05d}
 
-An advisor will reach out to confirm your appointment within 1-2 business days.
-If you need to reschedule, please call us at **416-978-2011** (St. George Campus).
+A confirmation has been sent to **{email}**.
+An advisor will reach out within 1-2 business days.
+If you need to reschedule, please call **416-978-2011** (St. George Campus).
 """
     return confirmation
 
