@@ -12,14 +12,18 @@ from config import llm
 @tool
 def search_programs(query: str) -> str:
     """
-    Search the UofT knowledge base to answer questions about programs,
-    courses, enrolment requirements, and completion requirements.
-    Use this for any factual question about UofT academic programs.
+    Search the UofT knowledge base for program information.
     
-    Examples:
-    - "What are the requirements for African Studies Specialist?"
-    - "What courses do I need for Rotman Commerce?"
-    - "Does UofT offer a Computer Science program?"
+    IMPORTANT: Always include the department or faculty name in the query for better results.
+    Good examples:
+      - "Rotman Commerce Accounting Specialist requirements"
+      - "Computer Science Major St. George enrolment"
+      - "UTM Psychology program"
+    Bad examples:
+      - "Accounting Specialist requirements"  (missing department name)
+      - "enrolment requirements"  (too vague)
+    
+    Use this tool for questions about specific programs, requirements, and course details.
     """
     result = rag_answer(query)
     
