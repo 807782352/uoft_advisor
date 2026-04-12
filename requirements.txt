@@ -6,3 +6,5 @@ chainlit
 faiss-cpu
 beautifulsoup4
 requests
+selenium 
+webdriver-manager
