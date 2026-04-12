@@ -33,4 +33,24 @@ def test_vectorstore():
             print(f"  Department: {doc.metadata['department']}")
             print(f"  Preview:    {doc.page_content[:150]}...")
 
-test_vectorstore()
+# test_vectorstore()
+
+
+def test_rag_retrieval():
+    import sys, os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'app')))
+    from rag import rag_answer
+
+    queries = [
+        "Management Specialist BCom requirements",
+        "Rotman Commerce Management Specialist",
+        "Tell me about the requirements for Management Specialist BCom",
+    ]
+
+    for q in queries:
+        print(f"\nQuery: {q}")
+        result = rag_answer(q)
+        print(f"Answer: {result['answer'][:200]}")
+        print(f"Sources: {result['sources']}")
+
+test_rag_retrieval()
