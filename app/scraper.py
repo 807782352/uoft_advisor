@@ -26,7 +26,10 @@ from bs4 import BeautifulSoup
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-LISTING_URL  = "https://www.utoronto.ca/academics/undergraduate-programs"
+# St.Geroge campus and Mississauga programs
+LISTING_URL  = "https://www.utoronto.ca/academics/undergraduate-programs" 
+
+# Scarborough programs
 UTSC_CAL_URL = "https://utsc.calendar.utoronto.ca/program-sections"
 UTSC_PRINT   = "https://utsc.calendar.utoronto.ca/print/view/pdf/calendar_section_view/print_page/debug?view_args[]={slug}"
 

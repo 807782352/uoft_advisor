@@ -135,8 +135,8 @@ suitable UofT programs with explanations.
 Retrieves specific course requirements and credit breakdowns for any program.
 
 ### 4. Advisor Appointment Booking (Multi-turn)
-Collects student name, topic, and preferred time across multiple conversation
-turns before confirming the booking.
+Collects student name, topic, preferred time, and email across multiple
+conversation turns before confirming the booking.
 
 ### 5. Guardrails
 - Rejects out-of-scope questions (e.g. coding help, weather)
@@ -148,30 +148,44 @@ turns before confirming the booking.
 
 ## Evaluation Results
 
-**20 test cases** covering all required capability areas:
+**20 test cases** with dual evaluation: keyword matching + LLM-as-Judge.
 
 | Category | Score |
 |---|---|
 | RAG Knowledge Q&A | 7/7 |
-| Program Recommendation | 3/3 |
+| Program Recommendation | 2/3 |
 | Course Planning | 1/2 |
 | Appointment Booking | 1/1 |
-| Appointment Booking (one-shot) | 1/1 |
+| Appointment Booking (one-shot) | 0/1 |
 | Out-of-Scope Rejection | 2/2 |
 | Not in Knowledge Base | 3/3 |
 | Prompt Injection | 1/1 |
-| **Total** | **19/20 (95%)** |
+| **Total** | **17/20 (85%)** |
+
+### Evaluation Methodology
+Each test case uses two layers of evaluation:
+1. **Keyword matching** — checks for presence of expected terms in the response
+2. **LLM-as-Judge** — uses the LLM itself to assess semantic quality and relevance
+
+A test passes only when both layers agree it is correct, making the evaluation
+more robust than simple keyword matching alone.
 
 ### Failure Analysis
+- **Program Recommendation (Test 6)**: Agent occasionally asks a clarifying
+  question instead of immediately recommending programs when the query is broad.
 - **Course Planning (Test 8)**: RAG retrieves the correct document but the
-  response focuses on the program introduction rather than specific course
-  codes and credit requirements.
+  response focuses on program introduction rather than specific course codes
+  and credit requirements.
+- **Appointment Booking one-shot (Test 10)**: Agent correctly requests email
+  before confirming — this is expected behaviour given our booking design, but
+  the test case does not provide an email upfront.
 
 ### Known Limitations
 - UTSC admissions pages (~90 programs) are not covered as they lack
   printer-friendly calendar pages
 - Course-level details (individual course descriptions) not included
 - Appointment booking is simulated, not connected to a real system
+- Cross-session memory not implemented (session-level context only), but it might not be necessary in our case
 
 ---
 

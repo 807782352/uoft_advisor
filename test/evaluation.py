@@ -11,6 +11,32 @@ from agent import build_agent, chat
 
 agent = build_agent()
 
+from config import llm
+
+def llm_judge(question: str, response: str, expected: str) -> tuple[bool, str]:
+    prompt = f"""You are evaluating an AI academic advisor's response.
+
+Question: {question}
+Expected key points: {expected}
+Actual response: {response[:500]}
+
+Judge leniently — PASS if the response:
+- Is relevant to the question
+- Contains at least SOME of the expected key points
+- Is helpful and not misleading
+
+Only FAIL if the response is completely off-topic, wrong, or unhelpful.
+
+Reply in exactly this format:
+VERDICT: PASS or FAIL
+REASON: one sentence
+"""
+    result = llm.invoke(prompt)
+    content = result.content.strip()
+    passed = "VERDICT: PASS" in content.upper()
+    reason = content.split("REASON:")[-1].strip() if "REASON:" in content else ""
+    return passed, reason
+
 # ============================================================
 # Test Cases
 # ============================================================
@@ -195,17 +221,32 @@ def run_evaluation():
 
         try:
             response, _ = chat(agent, tc["input"], history=[])
-            passed = tc["pass_criteria"](response)
+            
+            # 关键词检查
+            keyword_pass = tc["pass_criteria"](response)
+            
+            # LLM 质量检查
+            llm_pass, reason = llm_judge(tc["input"], response, tc["expected"])
+            
+            # 两个都通过才算 PASS
+            passed = keyword_pass and llm_pass
+            
             status = "✅ PASS" if passed else "❌ FAIL"
             print(f"  Response: {response[:200]}...")
+            print(f"  Keyword:  {'✅' if keyword_pass else '❌'}")
+            print(f"  LLM Judge: {'✅' if llm_pass else '❌'} — {reason}")
             print(f"  Result:   {status}")
+            
             results.append({
-                "id":            tc["id"],
-                "category":      tc["category"],
-                "input":         tc["input"],
-                "expected":      tc["expected"],
-                "response":      response,
-                "passed":        passed,
+                "id":           tc["id"],
+                "category":     tc["category"],
+                "input":        tc["input"],
+                "expected":     tc["expected"],
+                "response":     response,
+                "passed":       passed,
+                "keyword_pass": keyword_pass,
+                "llm_pass":     llm_pass,
+                "llm_reason":   reason,
             })
         except Exception as e:
             print(f"  Result:   ❌ ERROR — {e}")
